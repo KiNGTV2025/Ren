@@ -12,7 +12,7 @@ exit;
 $videoId = preg_replace('/\.m3u8$/', '', $videoId);
 
 // Base URL tanımı
-$baseUrl = "YouTube";
+$baseUrl = "https://www.youtube.com/watch?v=";
 $targetUrl = $baseUrl . $videoId;
 
 // cURL ile tarayıcı gibi YouTube sayfasını çek
