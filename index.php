@@ -1,5 +1,4 @@
 <?php
-// İstemciden video ID al
 $videoId = isset($_GET['id']) ? $_GET['id'] : '';
 
 if (!$videoId) {
@@ -8,75 +7,46 @@ if (!$videoId) {
     exit;
 }
 
-// Eğer videoId sonunda .m3u8 uzantısı varsa temizle
-$videoId = preg_replace('/\.m3u8$/', '', $videoId);
+$videoUrl = escapeshellarg("https://www.youtube.com/watch?v=" . $videoId);
 
-// YouTube video URL'si
-$baseUrl = "https://www.youtube.com/watch?v=";
-$targetUrl = $baseUrl . $videoId;
+// yt-dlp komutunu çalıştır, JSON çıktısını al
+$cmd = "yt-dlp -j {$videoUrl} 2>&1";
 
-// cURL ile YouTube sayfasını çek
-function fetchUrl($url) {
-    $ch = curl_init();
-    curl_setopt_array($ch, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => false,
-        CURLOPT_HEADER => false,
-        CURLOPT_COOKIEJAR => __DIR__ . '/cookies.txt',
-        CURLOPT_COOKIEFILE => __DIR__ . '/cookies.txt',
-        CURLOPT_AUTOREFERER => true,
-        CURLOPT_HTTPHEADER => [
-            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language: en-US,en;q=0.5',
-            'Connection: keep-alive'
-        ],
-        CURLOPT_USERAGENT => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-    ]);
+exec($cmd, $output, $return_var);
 
-    $response = curl_exec($ch);
-
-    if (curl_errno($ch)) {
-        echo 'cURL hatası: ' . curl_error($ch);
-        curl_close($ch);
-        return false;
-    }
-
-    curl_close($ch);
-    return $response;
-}
-
-$response = fetchUrl($targetUrl);
-
-if (!$response) {
+if ($return_var !== 0) {
     http_response_code(500);
-    echo "Bağlantı alınamadı.";
+    echo "yt-dlp komutu başarısız: " . implode("\n", $output);
     exit;
 }
 
-// Güncellenmiş regex - doğru kaçış karakterleri kullanıldı
-if (preg_match('/"hlsManifestUrl":"(https:\\\\/\\\\/[^"]+index\\.m3u8[^"]*)"/', $response, $matches)) {
-    $streamUrl = str_replace('\\/', '/', $matches[1]);
+$jsonStr = implode("\n", $output);
+$videoInfo = json_decode($jsonStr, true);
 
-    header('Content-Type: application/vnd.apple.mpegurl');
-    header('Content-Disposition: inline; filename="stream.m3u8"');
-    header('Location: ' . $streamUrl);
+if (!$videoInfo) {
+    http_response_code(500);
+    echo "Video bilgisi çözümlenemedi.";
     exit;
 }
-// Fallback regex pattern
-elseif (preg_match('/https:\/\/[^"]+\/index\.m3u8/', $response, $matches)) {
-    $streamUrl = $matches[0];
 
-    header('Content-Type: application/vnd.apple.mpegurl');
-    header('Content-Disposition: inline; filename="stream.m3u8"');
-    header('Location: ' . $streamUrl);
-    exit;
-} else {
+// M3U8 linklerini ara
+$m3u8Url = null;
+foreach ($videoInfo['formats'] as $format) {
+    if (isset($format['protocol']) && $format['protocol'] === 'm3u8_native') {
+        $m3u8Url = $format['url'];
+        break;
+    }
+}
+
+if (!$m3u8Url) {
     http_response_code(404);
-    echo "index.m3u8 dosyası bulunamadı. YouTube yapısı değişmiş olabilir veya video canlı yayın olmayabilir.";
+    echo "M3U8 linki bulunamadı.";
+    exit;
 }
+
+// Yönlendir
+header('Content-Type: application/vnd.apple.mpegurl');
+header('Content-Disposition: inline; filename="stream.m3u8"');
+header('Location: ' . $m3u8Url);
+exit;
 ?>
