@@ -3,75 +3,85 @@
 $videoId = isset($_GET['id']) ? $_GET['id'] : '';
 
 if (!$videoId) {
-  http_response_code(400);
-  echo "❌ Video ID gerekli.";
-  exit;
+http_response_code(400);
+echo "Video ID gerekli.";
+exit;
 }
 
-// ".m3u8" varsa sonundan sil
+// Eğer videoId sonunda .m3u8 uzantısı varsa temizle
 $videoId = preg_replace('/\.m3u8$/', '', $videoId);
 
-// YouTube video sayfası URL’si oluştur
-$targetUrl = "https://www.youtube.com/watch?v=" . $videoId;
+// Base URL tanımı
+$baseUrl = "YouTube";
+$targetUrl = $baseUrl . $videoId;
 
-// YouTube sayfasını çekmek için cURL fonksiyonu
+// cURL ile tarayıcı gibi YouTube sayfasını çek
 function fetchUrl($url) {
-  $ch = curl_init();
-  curl_setopt_array($ch, [
-    CURLOPT_URL => $url,
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_MAXREDIRS => 10,
-    CURLOPT_TIMEOUT => 30,
-    CURLOPT_SSL_VERIFYPEER => false,
-    CURLOPT_SSL_VERIFYHOST => false,
-    CURLOPT_USERAGENT => "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    CURLOPT_COOKIEJAR => __DIR__ . '/cookies.txt',
-    CURLOPT_COOKIEFILE => __DIR__ . '/cookies.txt',
-  ]);
+$ch = curl_init();
 
-  $response = curl_exec($ch);
+curl_setopt($ch, CURLOPT_URL, $url);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
+curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+curl_setopt($ch, CURLOPT_HEADER, 0);
+curl_setopt($ch, CURLOPT_COOKIEJAR, __DIR__ . '/cookies.txt');
+curl_setopt($ch, CURLOPT_COOKIEFILE, __DIR__ . '/cookies.txt');
+curl_setopt($ch, CURLOPT_AUTOREFERER, true);
 
-  if (curl_errno($ch)) {
-    echo '❌ cURL hatası: ' . curl_error($ch);
-    curl_close($ch);
-    return false;
-  }
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+'Accept-Language: en-US,en;q=0.5',
+'Connection: keep-alive'
+]);
 
-  curl_close($ch);
-  return $response;
+curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36");
+
+$response = curl_exec($ch);
+
+if (curl_errno($ch)) {
+echo 'cURL hatası: ' . curl_error($ch);
+curl_close($ch);
+return false;
 }
 
-// Sayfa içeriğini al
+curl_close($ch);
+return $response;
+}
+
+// URL'yi fetch et
 $response = fetchUrl($targetUrl);
 
 if (!$response) {
-  http_response_code(500);
-  echo "❌ Sayfa içeriği alınamadı.";
-  exit;
+http_response_code(500);
+echo "Bağlantı alınamadı.";
+exit;
 }
 
-// HLS manifest URL’sini regex ile yakala
-if (preg_match('/"hlsManifestUrl":"(https:\\\\/\\\\/[^"]+index\\.m3u8[^"]*)"/', $response, $matches)) {
-  $streamUrl = str_replace('\\/', '/', $matches[1]); // JSON'dan gelen \\/ düzeltmesi
+// Güncellenmiş regex pattern'i
+if (preg_match('/"hlsManifestUrl":"(https:\\\/\\\/[^"]+index\.m3u8[^"]*)"/', $response, $matches)) {
+$streamUrl = str_replace('\/', '/', $matches[1]);
 
-  header('Content-Type: application/vnd.apple.mpegurl');
-  header('Content-Disposition: inline; filename="stream.m3u8"');
-  header('Location: ' . $streamUrl);
-  exit;
+// HLS stream MIME tipi
+header('Content-Type: application/vnd.apple.mpegurl');
+header('Content-Disposition: inline; filename="stream.m3u8"');
 
+// İstemciye doğrudan m3u8 bağlantısını döndür
+header('Location: ' . $streamUrl);
+exit;
 }
-// Yedek desen: doğrudan m3u8 URL varsa
-elseif (preg_match('/https:\/\/[^"]+\/index\.m3u8[^"]*/', $response, $matches)) {
-  $streamUrl = $matches[0];
+// Eski regex pattern'i (fallback)
+elseif (preg_match('/https:\/\/[^"]+\/index\.m3u8/', $response, $matches)) {
+$streamUrl = $matches[0];
 
-  header('Content-Type: application/vnd.apple.mpegurl');
-  header('Content-Disposition: inline; filename="stream.m3u8"');
-  header('Location: ' . $streamUrl);
-  exit;
-
+header('Content-Type: application/vnd.apple.mpegurl');
+header('Content-Disposition: inline; filename="stream.m3u8"');
+header('Location: ' . $streamUrl);
+exit;
 } else {
-  http_response_code(404);
-  echo "❌ index.m3u8 bulunamadı. Bu video canlı yayın olmayabilir.";
+http_response_code(404);
+echo "index.m3u8 dosyası bulunamadı. YouTube yapısı değişmiş olabilir.";
 }
 ?>
