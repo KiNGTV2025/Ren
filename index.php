@@ -8,13 +8,14 @@ if (!$videoId) {
     exit;
 }
 
-// videoId sonunda .m3u8 varsa temizle
+// Eğer videoId sonunda .m3u8 uzantısı varsa temizle
 $videoId = preg_replace('/\.m3u8$/', '', $videoId);
 
-// YouTube video URL’si
+// YouTube video URL'si
 $baseUrl = "https://www.youtube.com/watch?v=";
 $targetUrl = $baseUrl . $videoId;
 
+// cURL ile YouTube sayfasını çek
 function fetchUrl($url) {
     $ch = curl_init();
     curl_setopt_array($ch, [
@@ -57,7 +58,7 @@ if (!$response) {
     exit;
 }
 
-// Regex ile hlsManifestUrl yakala
+// Güncellenmiş regex - doğru kaçış karakterleri kullanıldı
 if (preg_match('/"hlsManifestUrl":"(https:\\\\/\\\\/[^"]+index\\.m3u8[^"]*)"/', $response, $matches)) {
     $streamUrl = str_replace('\\/', '/', $matches[1]);
 
@@ -66,7 +67,7 @@ if (preg_match('/"hlsManifestUrl":"(https:\\\\/\\\\/[^"]+index\\.m3u8[^"]*)"/', 
     header('Location: ' . $streamUrl);
     exit;
 }
-// Fallback regex
+// Fallback regex pattern
 elseif (preg_match('/https:\/\/[^"]+\/index\.m3u8/', $response, $matches)) {
     $streamUrl = $matches[0];
 
