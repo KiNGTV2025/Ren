@@ -4,9 +4,11 @@ services:
     env: python
     region: frankfurt
     buildCommand: docker build -t tvproxy .
-    startCommand: docker run -p 8000:8000 tvproxy
+    startCommand: sh -c "gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --worker-class sync --timeout 120"
     envVars:
       - key: PORT
         value: "8000"
       - key: CACHE_ENABLED
         value: "true"
+      - key: VERIFY_SSL
+        value: "false"
