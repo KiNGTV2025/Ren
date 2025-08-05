@@ -1,24 +1,23 @@
-# Build aşaması
-FROM python:3.12-slim as builder
-
-WORKDIR /app
-COPY requirements.txt .
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
-    pip install --upgrade pip && \
-    pip install --user --no-cache-dir -r requirements.txt
-
-# Final aşama
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY --from=builder /root/.local /root/.local
-COPY . .
 
-ENV PATH=/root/.local/bin:$PATH
-ENV PORT=8000
-EXPOSE $PORT
+COPY requirements.txt .
+COPY app.py .
 
-# Gunicorn komutu shell ortamında çalıştırılacak şekilde güncellendi
-CMD ["sh", "-c", "gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --worker-class sync --timeout 120 --access-logfile - --error-logfile -"]
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN pip install gunicorn
+
+EXPOSE 7860
+
+CMD ["gunicorn", "app:app", \
+     "-w", "4", \
+     "--worker-class", "gevent", \
+     "--worker-connections", "100", \
+     "-b", "0.0.0.0:7860", \
+     "--timeout", "120", \
+     "--keep-alive", "5", \
+     "--max-requests", "1000", \
+     "--max-requests-jitter", "100"]
