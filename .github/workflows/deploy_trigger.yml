@@ -1,14 +1,14 @@
 # .github/workflows/trigger_render.yml
 
-name: Trigger Render Deploy (Overwrite README in Turkish)
+name: Trigger Render Deploy (Overwrite README in Turkish with time)
 
 on:
   schedule:
-    - cron: '0 */8 * * *'  # Her 8 saatte bir çalışır
+    - cron: '0 */8 * * *'  # Her 8 saatte bir tetiklenir
   workflow_dispatch:        # Manuel tetiklemeye de izin verir
 
 permissions:
-  contents: write  # Depoya yazma izni
+  contents: write  # Yazma izni (README.md için)
 
 jobs:
   update_readme:
@@ -23,11 +23,11 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
 
-      - name: Overwrite README.md with Turkish timestamp
+      - name: Overwrite README.md with Turkish timestamp including time
         run: |
-          # Türkçe tarih için yerel ayarları kullan
+          # Türkçe tarih + saat için yerel ayarı ayarla
           export LC_TIME=tr_TR.UTF-8
-          echo "README son olarak $(date '+%d %B %Y') tarihinde güncellendi." > README.md
+          echo "README son olarak $(date '+%d %B %Y %H:%M') tarihinde güncellendi." > README.md
 
       - name: Commit and Push Changes
         run: |
