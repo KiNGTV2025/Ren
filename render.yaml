@@ -1,8 +1,16 @@
 services:
   - type: web
-    name: youtube-hls-proxy
-    env: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
-    branch: main
-    autoDeploy: true
+    name: tv-proxy-server
+    env: python
+    region: frankfurt # Avrupa sunucusu
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: VERIFY_SSL
+        value: "true"
+      - key: REQUEST_TIMEOUT
+        value: "30"
+      - key: CACHE_ENABLED
+        value: "true"
