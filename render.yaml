@@ -1,16 +1,12 @@
 services:
   - type: web
-    name: tv-proxy-server
+    name: tvproxy
     env: python
-    region: frankfurt # Avrupa sunucusu
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    region: frankfurt
+    buildCommand: docker build -t tvproxy .
+    startCommand: docker run -p 8000:8000 tvproxy
     envVars:
       - key: PORT
-        value: 8000
-      - key: VERIFY_SSL
-        value: "true"
-      - key: REQUEST_TIMEOUT
-        value: "30"
+        value: "8000"
       - key: CACHE_ENABLED
         value: "true"
