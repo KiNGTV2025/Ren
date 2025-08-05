@@ -1,0 +1,38 @@
+# .github/workflows/trigger_render.yml
+
+name: Trigger Render Deploy (Overwrite README in Turkish)
+
+on:
+  schedule:
+    - cron: '0 */8 * * *'  # Her 8 saatte bir çalışır
+  workflow_dispatch:        # Manuel tetiklemeye de izin verir
+
+permissions:
+  contents: write  # Depoya yazma izni
+
+jobs:
+  update_readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Overwrite README.md with Turkish timestamp
+        run: |
+          # Türkçe tarih için yerel ayarları kullan
+          export LC_TIME=tr_TR.UTF-8
+          echo "README son olarak $(date '+%d %B %Y') tarihinde güncellendi." > README.md
+
+      - name: Commit and Push Changes
+        run: |
+          git add README.md
+          git diff --quiet --cached || git commit -m "Otomatik README güncellemesi ile deploy tetiklendi"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
