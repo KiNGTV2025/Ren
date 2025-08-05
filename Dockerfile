@@ -20,11 +20,5 @@ ENV PATH=/root/.local/bin:$PATH
 ENV PORT=8000
 EXPOSE $PORT
 
-# Gunicorn optimizasyonları
-CMD ["gunicorn", "app:app", \
-    "--bind", "0.0.0.0:$PORT", \
-    "--workers", "4", \
-    "--worker-class", "sync", \
-    "--timeout", "120", \
-    "--access-logfile", "-", \
-    "--error-logfile", "-"]
+# Gunicorn komutu shell ortamında çalıştırılacak şekilde güncellendi
+CMD ["sh", "-c", "gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --worker-class sync --timeout 120 --access-logfile - --error-logfile -"]
