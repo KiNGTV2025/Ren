@@ -1,6 +1,6 @@
 # .github/workflows/trigger_render.yml
 
-name: Trigger Render Deploy (Turkish Time & Date)
+name: Trigger Render Deploy (Turkish Time & Log Output)
 
 on:
   schedule:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:        # Manuel tetikleme
 
 permissions:
-  contents: write  # Yazma izni
+  contents: write
 
 jobs:
   update_readme:
@@ -23,11 +23,20 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
 
-      - name: Overwrite README.md with Turkish date & time (Europe/Istanbul)
+      - name: Install Turkish locale
         run: |
-          export LC_TIME=tr_TR.UTF-8
+          sudo apt-get update
+          sudo apt-get install -y locales
+          sudo locale-gen tr_TR.UTF-8
+          sudo update-locale LC_ALL=tr_TR.UTF-8 LANG=tr_TR.UTF-8
+          export LANG=tr_TR.UTF-8
+          export LC_ALL=tr_TR.UTF-8
           export TZ=Europe/Istanbul
-          echo "README son olarak $(date '+%d %B %Y %H:%M') tarihinde güncellendi." > README.md
+
+          # Tarihi oluştur ve hem log'a yaz hem README.md dosyasına
+          DATE_TR=$(LC_TIME=tr_TR.UTF-8 TZ=Europe/Istanbul date '+%d %B %Y %H:%M')
+          echo "✅ Güncelleme zamanı (Türkiye saati): $DATE_TR"
+          echo "README son olarak $DATE_TR tarihinde güncellendi." > README.md
 
       - name: Commit and Push Changes
         run: |
@@ -35,6 +44,4 @@ jobs:
           git diff --quiet --cached || git commit -m "Otomatik README güncellemesi ile deploy tetiklendi"
           git push origin main
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
