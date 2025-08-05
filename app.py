@@ -2616,7 +2616,7 @@ setup_proxies()
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 7860))
+    port = int(os.environ.get("PORT", 8000))
     
     # Log di avvio
     app.logger.info("="*50)
