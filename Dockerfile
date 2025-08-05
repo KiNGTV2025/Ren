@@ -1,14 +1,30 @@
-FROM php:8.2-apache
+# Build aşaması
+FROM python:3.12-slim as builder
 
-# Python3, curl ve diğer bağımlılıkları kur
-RUN apt-get update && apt-get install -y python3 curl unzip git
+WORKDIR /app
+COPY requirements.txt .
 
-# yt-dlp binary'sini indir ve çalıştırılabilir yap
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    pip install --upgrade pip && \
+    pip install --user --no-cache-dir -r requirements.txt
 
-RUN a2enmod rewrite
+# Final aşama
+FROM python:3.12-slim
 
-COPY ./ /var/www/html/
+WORKDIR /app
+COPY --from=builder /root/.local /root/.local
+COPY . .
 
-EXPOSE 80
+ENV PATH=/root/.local/bin:$PATH
+ENV PORT=8000
+EXPOSE $PORT
+
+# Gunicorn optimizasyonları
+CMD ["gunicorn", "app:app", \
+    "--bind", "0.0.0.0:$PORT", \
+    "--workers", "4", \
+    "--worker-class", "sync", \
+    "--timeout", "120", \
+    "--access-logfile", "-", \
+    "--error-logfile", "-"]
