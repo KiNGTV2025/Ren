@@ -1,1 +1,1 @@
-README son olarak 22 Ağustos 2025 11:31 tarihinde güncellendi.
+README son olarak 22 Ağustos 2025 19:28 tarihinde güncellendi.
