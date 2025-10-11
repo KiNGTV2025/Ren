@@ -2,6 +2,7 @@ from flask import Flask, request, Response
 import requests
 from urllib.parse import urlparse, urljoin, quote, unquote
 import re
+import traceback
 import os
 
 app = Flask(__name__)
@@ -23,18 +24,21 @@ def replace_key_uri(line, headers_query):
 # --- Proxy M3U ---
 @app.route('/proxy/m3u')
 def proxy_m3u():
-    """Proxy M3U/M3U8 dosyası"""
     m3u_url = request.args.get('url', '').strip()
     if not m3u_url:
         return "Hata: 'url' parametresi eksik", 400
 
-    headers = {
+    # Headers ayarı
+    request_headers = {
         unquote(k[2:]).replace("_", "-"): unquote(v).strip()
         for k, v in request.args.items() if k.lower().startswith("h_")
     }
-    headers.setdefault("User-Agent", "Mozilla/5.0")
-    headers.setdefault("Referer", "https://vavoo.to")
-    headers.setdefault("Origin", "https://vavoo.to")
+
+    headers = {
+        "User-Agent": request_headers.get("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"),
+        "Referer": request_headers.get("Referer", "https://vavoo.to/"),
+        "Origin": request_headers.get("Origin", "https://vavoo.to")
+    }
 
     try:
         # M3U8 isteği
@@ -47,8 +51,8 @@ def proxy_m3u():
             return Response(content, content_type="application/vnd.apple.mpegurl")
 
         parsed = urlparse(m3u_url)
-        base_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path.rsplit('/', 1)[0]}/"
-        headers_query = "&".join([f"h_{quote(k)}={quote(v)}" for k, v in headers.items()])
+        base_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path.rsplit('/',1)[0]}/"
+        headers_query = "&".join([f"h_{quote(k)}={quote(v)}" for k,v in headers.items()])
 
         modified_lines = []
         for line in content.splitlines():
@@ -64,10 +68,13 @@ def proxy_m3u():
         return Response(modified_content, content_type="application/vnd.apple.mpegurl")
 
     except requests.RequestException as e:
+        traceback.print_exc()
         return f"M3U/M3U8 indirme hatası: {str(e)}", 500
+    except Exception as e:
+        traceback.print_exc()
+        return f"Genel hata: {str(e)}", 500
 
-
-# --- Proxy TS ---
+# --- TS Proxy ---
 @app.route('/proxy/ts')
 def proxy_ts():
     ts_url = request.args.get('url', '').strip()
@@ -76,22 +83,22 @@ def proxy_ts():
 
     headers = {
         unquote(k[2:]).replace("_", "-"): unquote(v).strip()
-        for k, v in request.args.items() if k.lower().startswith("h_")
+        for k,v in request.args.items() if k.lower().startswith("h_")
     }
 
     try:
-        r = requests.get(ts_url, headers=headers, stream=True, timeout=(10, 30))
+        r = requests.get(ts_url, headers=headers, stream=True, timeout=(10,30))
         r.raise_for_status()
         def generate():
             for chunk in r.iter_content(chunk_size=8192):
                 if chunk:
                     yield chunk
         return Response(generate(), content_type="video/mp2t")
-    except requests.RequestException as e:
+    except Exception as e:
+        traceback.print_exc()
         return f"TS segment hatası: {str(e)}", 500
 
-
-# --- Proxy Key ---
+# --- Key Proxy ---
 @app.route('/proxy/key')
 def proxy_key():
     key_url = request.args.get('url', '').strip()
@@ -100,42 +107,20 @@ def proxy_key():
 
     headers = {
         unquote(k[2:]).replace("_", "-"): unquote(v).strip()
-        for k, v in request.args.items() if k.lower().startswith("h_")
+        for k,v in request.args.items() if k.lower().startswith("h_")
     }
 
     try:
-        r = requests.get(key_url, headers=headers, timeout=(5, 15))
+        r = requests.get(key_url, headers=headers, timeout=(5,15))
         r.raise_for_status()
         return Response(r.content, content_type="application/octet-stream")
-    except requests.RequestException as e:
-        return f"AES-128 anahtar hatası: {str(e)}", 500
-
-
-# --- Proxy List ---
-@app.route('/proxy')
-def proxy_list():
-    m3u_url = request.args.get('url', '').strip()
-    if not m3u_url:
-        return "Hata: 'url' parametresi eksik", 400
-    try:
-        server_ip = request.host
-        res = requests.get(m3u_url, timeout=(10, 30))
-        res.raise_for_status()
-        lines = []
-        for line in res.text.splitlines():
-            line = line.strip()
-            if line and not line.startswith('#'):
-                line = f"https://{server_ip}/proxy/m3u?url={line}"
-            lines.append(line)
-        return Response("\n".join(lines), content_type="application/vnd.apple.mpegurl")
     except Exception as e:
-        return f"Liste proxy hatası: {str(e)}", 500
-
+        traceback.print_exc()
+        return f"AES-128 key hatası: {str(e)}", 500
 
 @app.route('/')
 def index():
-    return "✅ IPTV Proxy aktif (Render sürümü)!"
-
+    return "✅ IPTV Proxy Render sürümü aktif!"
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=7860)
